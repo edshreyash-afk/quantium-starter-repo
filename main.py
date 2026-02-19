@@ -1,31 +1,37 @@
 import pandas as pd
-from pathlib import Path
+from dash import Dash, dcc, html
+import plotly.express as px
 
-# Load all CSV files
-data_path = Path("data")
-csv_files = list(data_path.glob("*.csv"))
+# Load formatted sales data
+df = pd.read_csv("formatted_sales.csv")
 
-df_list = [pd.read_csv(file) for file in csv_files]
+# Convert date to datetime and sort
+df["date"] = pd.to_datetime(df["date"])
+df = df.sort_values("date")
 
-# Combine into one DataFrame
-df = pd.concat(df_list, ignore_index=True)
+# Aggregate sales per day
+daily_sales = df.groupby("date", as_index=False)["sales"].sum()
 
-# Keep only Pink Morsels
-df = df[df["product"] == "pink morsel"]
+# Create line chart
+fig = px.line(
+    daily_sales,
+    x="date",
+    y="sales",
+    labels={
+        "date": "Date",
+        "sales": "Total Sales ($)"
+    },
+    title="Pink Morsel Sales Over Time"
+)
 
-# Clean price column
-df["price"] = df["price"].replace('[\$,]', '', regex=True).astype(float)
+# Create Dash app
+app = Dash(__name__)
 
-# Create sales column
-df["sales"] = df["quantity"] * df["price"]
+app.layout = html.Div([
+    html.H1("Soul Foods Pink Morsel Sales Visualiser"),
+    dcc.Graph(figure=fig)
+])
 
-# Keep only required fields
-final_df = df[["sales", "date", "region"]]
-
-# Save output file
-output_path = Path("formatted_sales.csv")
-final_df.to_csv(output_path, index=False)
-
-print("Formatted output saved to:", output_path)
-print("\nSample output:")
-print(final_df.head())
+# Run server
+if __name__ == "__main__":
+    app.run(debug=True)
